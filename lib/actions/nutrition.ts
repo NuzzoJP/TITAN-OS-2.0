@@ -244,3 +244,175 @@ export async function getRecentHealthStats(limit = 10) {
   
   return data as HealthStat[];
 }
+
+// Calcular métricas metabólicas usando fórmula Mifflin-St Jeor
+export function calculateMetabolics(data: {
+  weight_kg: number;
+  height_cm: number;
+  age: number;
+  gender: 'male' | 'female';
+  activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  goal: 'cut' | 'maintain' | 'bulk';
+}) {
+  // 1. BMR (Mifflin-St Jeor)
+  const bmr = data.gender === 'male'
+    ? (10 * data.weight_kg) + (6.25 * data.height_cm) - (5 * data.age) + 5
+    : (10 * data.weight_kg) + (6.25 * data.height_cm) - (5 * data.age) - 161;
+  
+  // 2. TDEE (Total Daily Energy Expenditure)
+  const multipliers = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    very_active: 1.9,
+  };
+  const tdee = bmr * multipliers[data.activity_level];
+  
+  // 3. Target Calories según objetivo
+  const adjustments = { 
+    cut: -500,      // Déficit para perder grasa
+    maintain: 0,    // Mantener peso
+    bulk: 300       // Superávit para ganar músculo
+  };
+  const target_calories = tdee + adjustments[data.goal];
+  
+  // 4. Macros
+  // Proteína: 2g/kg (cut: 2.2g/kg para preservar músculo)
+  const protein_g = data.goal === 'cut' ? data.weight_kg * 2.2 : data.weight_kg * 2.0;
+  
+  // Grasas: 1g/kg (esencial para hormonas)
+  const fat_g = data.weight_kg * 1.0;
+  
+  // Carbos: llenar el resto de calorías
+  const protein_kcal = protein_g * 4;
+  const fat_kcal = fat_g * 9;
+  const carbs_g = (target_calories - protein_kcal - fat_kcal) / 4;
+  
+  return {
+    bmr: Math.round(bmr),
+    tdee: Math.round(tdee),
+    daily_calorie_target: Math.round(target_calories),
+    daily_protein_target_g: Math.round(protein_g),
+    daily_carbs_target_g: Math.round(carbs_g),
+    daily_fats_target_g: Math.round(fat_g),
+  };
+}
+
+// Calcular y guardar perfil metabólico completo
+export async function calculateAndSaveMetabolicProfile(formData: {
+  height_cm: number;
+  age: number;
+  gender: 'male' | 'female';
+  activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
+  goal: 'cut' | 'maintain' | 'bulk';
+}) {
+  const supabase = await createClient();
+  
+  // Obtener peso actual del usuario (última medición)
+  const { data: latestStat } = await supabase
+    .from('health_stats')
+    .select('weight_kg')
+    .order('measured_at', { ascending: false })
+    .limit(1)
+    .single();
+  
+  // Si no hay peso, usar un peso por defecto de 70kg para calcular
+  const weight_kg = latestStat?.weight_kg || 70;
+  
+  // Calcular métricas
+  const metrics = calculateMetabolics({
+    weight_kg,
+    ...formData,
+  });
+  
+  // Verificar si existe un perfil
+  const { data: existing } = await supabase
+    .from('health_metabolic_profile')
+    .select('id')
+    .single();
+  
+  const profileData = {
+    ...formData,
+    current_weight_kg: weight_kg,
+    ...metrics,
+  };
+  
+  if (existing) {
+    // Actualizar
+    const { data, error } = await supabase
+      .from('health_metabolic_profile')
+      .update(profileData)
+      .eq('id', existing.id)
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error updating metabolic profile:', error);
+      throw new Error('Error al actualizar el perfil');
+    }
+    
+    revalidatePath('/dashboard/health');
+    return data;
+  } else {
+    // Crear
+    const { data, error } = await supabase
+      .from('health_metabolic_profile')
+      .insert([profileData])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating metabolic profile:', error);
+      throw new Error('Error al crear el perfil');
+    }
+    
+    revalidatePath('/dashboard/health');
+    return data;
+  }
+}
+
+// Recalcular perfil metabólico cuando cambia el peso
+export async function recalculateMetabolicProfile(newWeight: number) {
+  const supabase = await createClient();
+  
+  // Obtener perfil actual
+  const { data: profile, error: profileError } = await supabase
+    .from('health_metabolic_profile')
+    .select('*')
+    .single();
+  
+  if (profileError || !profile) {
+    console.error('No metabolic profile found');
+    return null;
+  }
+  
+  // Recalcular con nuevo peso
+  const metrics = calculateMetabolics({
+    weight_kg: newWeight,
+    height_cm: profile.height_cm,
+    age: profile.age,
+    gender: profile.gender as 'male' | 'female',
+    activity_level: profile.activity_level as any,
+    goal: profile.goal as 'cut' | 'maintain' | 'bulk',
+  });
+  
+  // Actualizar perfil
+  const { data, error } = await supabase
+    .from('health_metabolic_profile')
+    .update({
+      current_weight_kg: newWeight,
+      ...metrics,
+    })
+    .eq('id', profile.id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error('Error recalculating profile:', error);
+    throw new Error('Error al recalcular el perfil');
+  }
+  
+  revalidatePath('/dashboard/health');
+  return data;
+}

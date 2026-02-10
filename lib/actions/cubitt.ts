@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { recalculateMetabolicProfile } from './nutrition';
 
 interface CubittData {
   weight_kg: number;
@@ -69,6 +70,14 @@ export async function analyzeCubittImage(base64Image: string) {
     if (insertError) {
       console.error('Error inserting Cubitt data:', insertError);
       return { success: false, error: 'Error al guardar los datos' };
+    }
+
+    // Recalcular perfil metabólico con el nuevo peso
+    try {
+      await recalculateMetabolicProfile(extractedData.weight_kg);
+    } catch (error) {
+      console.error('Error recalculating metabolic profile:', error);
+      // No fallar si el perfil no existe, solo loguear
     }
 
     revalidatePath('/dashboard/health');
@@ -318,5 +327,53 @@ export async function getLatestCubittData() {
   } catch (error) {
     console.error('Error in getLatestCubittData:', error);
     return { success: false, error: 'Error al obtener datos' };
+  }
+}
+
+/**
+ * Registrar peso manualmente (sin escaneo)
+ */
+export async function createManualWeightEntry(formData: {
+  weight_kg: number;
+  body_fat_percent?: number;
+  muscle_mass_kg?: number;
+}) {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'No autenticado' };
+    }
+
+    const { error: insertError } = await supabase
+      .from('health_stats')
+      .insert({
+        user_id: user.id,
+        measured_at: new Date().toISOString(),
+        source: 'manual',
+        weight_kg: formData.weight_kg,
+        body_fat_percent: formData.body_fat_percent || null,
+        muscle_mass_kg: formData.muscle_mass_kg || null,
+      });
+
+    if (insertError) {
+      console.error('Error inserting manual weight:', insertError);
+      return { success: false, error: 'Error al guardar el peso' };
+    }
+
+    // Recalcular perfil metabólico con el nuevo peso
+    try {
+      await recalculateMetabolicProfile(formData.weight_kg);
+    } catch (error) {
+      console.error('Error recalculating metabolic profile:', error);
+      // No fallar si el perfil no existe
+    }
+
+    revalidatePath('/dashboard/health');
+    return { success: true };
+  } catch (error) {
+    console.error('Error in createManualWeightEntry:', error);
+    return { success: false, error: 'Error al registrar el peso' };
   }
 }

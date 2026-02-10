@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Camera, Upload, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Camera, Upload, Loader2, CheckCircle2, AlertCircle, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -10,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { analyzeCubittImage } from '@/lib/actions/cubitt';
+import { analyzeCubittImage, createManualWeightEntry } from '@/lib/actions/cubitt';
 
 interface ScanCubittModalProps {
   open: boolean;
@@ -39,6 +42,12 @@ export function ScanCubittModal({ open, onOpenChange, onSuccess }: ScanCubittMod
   const [imagePreview, setImagePreview] = useState<string>('');
   const [extractedData, setExtractedData] = useState<CubittData | null>(null);
   const [error, setError] = useState<string>('');
+  const [manualData, setManualData] = useState({
+    weight_kg: '',
+    body_fat_percent: '',
+    muscle_mass_kg: '',
+  });
+  const [savingManual, setSavingManual] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -104,21 +113,72 @@ export function ScanCubittModal({ open, onOpenChange, onSuccess }: ScanCubittMod
     setImagePreview('');
     setExtractedData(null);
     setError('');
+    setManualData({ weight_kg: '', body_fat_percent: '', muscle_mass_kg: '' });
+    setSavingManual(false);
     onOpenChange(false);
+  };
+
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSavingManual(true);
+
+    try {
+      const weight = parseFloat(manualData.weight_kg);
+      if (isNaN(weight) || weight < 30 || weight > 300) {
+        throw new Error('Peso debe estar entre 30 y 300 kg');
+      }
+
+      const result = await createManualWeightEntry({
+        weight_kg: weight,
+        body_fat_percent: manualData.body_fat_percent ? parseFloat(manualData.body_fat_percent) : undefined,
+        muscle_mass_kg: manualData.muscle_mass_kg ? parseFloat(manualData.muscle_mass_kg) : undefined,
+      });
+
+      if (result.success) {
+        setStep('success');
+        setTimeout(() => {
+          onSuccess();
+          handleClose();
+        }, 1500);
+      } else {
+        setError(result.error || 'Error al guardar');
+        setStep('error');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar');
+      setStep('error');
+    } finally {
+      setSavingManual(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Escanear Reporte Cubitt</DialogTitle>
+          <DialogTitle>Actualizar Métricas</DialogTitle>
           <DialogDescription>
-            Sube una foto de tu reporte de Cubitt para actualizar tus métricas automáticamente
+            Escanea tu reporte de Cubitt o ingresa los datos manualmente
           </DialogDescription>
         </DialogHeader>
 
-        {/* STEP 1: Upload */}
-        {step === 'upload' && (
+        <Tabs defaultValue="scan" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="scan">
+              <Camera className="mr-2 h-4 w-4" />
+              Escanear
+            </TabsTrigger>
+            <TabsTrigger value="manual">
+              <Edit className="mr-2 h-4 w-4" />
+              Manual
+            </TabsTrigger>
+          </TabsList>
+
+          {/* TAB: Escanear */}
+          <TabsContent value="scan" className="space-y-4">
+            {/* STEP 1: Upload */}
+            {step === 'upload' && (
           <div className="space-y-4">
             {imagePreview ? (
               <div className="relative">
@@ -163,10 +223,88 @@ export function ScanCubittModal({ open, onOpenChange, onSuccess }: ScanCubittMod
                 Analizar Imagen
               </Button>
             )}
-          </div>
-        )}
+          </TabsContent>
 
-        {/* STEP 2: Analyzing */}
+          {/* TAB: Manual */}
+          <TabsContent value="manual" className="space-y-4">
+            <form onSubmit={handleManualSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="weight" className="text-base">
+                  Peso (kg) *
+                </Label>
+                <Input
+                  id="weight"
+                  type="number"
+                  step="0.1"
+                  inputMode="decimal"
+                  placeholder="70.5"
+                  value={manualData.weight_kg}
+                  onChange={(e) => setManualData({ ...manualData, weight_kg: e.target.value })}
+                  className="h-14 text-xl"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="body_fat" className="text-base">
+                  % Grasa Corporal (opcional)
+                </Label>
+                <Input
+                  id="body_fat"
+                  type="number"
+                  step="0.1"
+                  inputMode="decimal"
+                  placeholder="15.3"
+                  value={manualData.body_fat_percent}
+                  onChange={(e) => setManualData({ ...manualData, body_fat_percent: e.target.value })}
+                  className="h-14 text-xl"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="muscle_mass" className="text-base">
+                  Masa Muscular (kg) (opcional)
+                </Label>
+                <Input
+                  id="muscle_mass"
+                  type="number"
+                  step="0.1"
+                  inputMode="decimal"
+                  placeholder="55.2"
+                  value={manualData.muscle_mass_kg}
+                  onChange={(e) => setManualData({ ...manualData, muscle_mass_kg: e.target.value })}
+                  className="h-14 text-xl"
+                />
+              </div>
+
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground">
+                  💡 <strong>Tip:</strong> Tu perfil metabólico se recalculará automáticamente con el nuevo peso.
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full h-14 text-lg"
+                disabled={savingManual || !manualData.weight_kg}
+              >
+                {savingManual ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    Guardar
+                  </>
+                )}
+              </Button>
+            </form>
+          </TabsContent>
+        </Tabs>
+
+        {/* Shared Steps (analyzing, confirm, success, error) */}
         {step === 'analyzing' && (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sparkles, Target, TrendingUp, Scale, Flame } from 'lucide-react';
+import { Sparkles, Target, TrendingUp, Scale, Flame, Settings } from 'lucide-react';
 import {
   getTodayNutritionLogs,
   getDailyNutritionSummary,
@@ -9,12 +9,14 @@ import {
 } from '@/lib/actions/nutrition';
 import type { NutritionLog, MetabolicProfile } from '@/lib/actions/nutrition';
 import { ScanFoodModal } from './scan-food-modal';
+import { MetabolicProfileModal } from './metabolic-profile-modal';
 
 export function NutritionDashboard() {
   const [logs, setLogs] = useState<NutritionLog[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [profile, setProfile] = useState<MetabolicProfile | null>(null);
   const [showScanModal, setShowScanModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -45,10 +47,83 @@ export function NutritionDashboard() {
     loadData();
   };
 
+  const handleProfileModalClose = () => {
+    setShowProfileModal(false);
+    loadData();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-muted-foreground">Cargando...</div>
+      </div>
+    );
+  }
+
+  // Si no hay perfil, mostrar empty state
+  if (!profile) {
+    return (
+      <div className="space-y-6">
+        {/* Empty State */}
+        <div className="bg-card border border-border rounded-lg p-8 md:p-12 text-center">
+          <div className="max-w-md mx-auto">
+            <Sparkles className="mx-auto h-16 w-16 text-primary mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Configura tu Perfil Metabólico</h2>
+            <p className="text-muted-foreground mb-6">
+              Para obtener recomendaciones personalizadas de calorías y macros, necesitamos conocer algunos datos básicos.
+            </p>
+            
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="w-full h-16 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-lg shadow-primary/20 text-lg font-semibold"
+            >
+              <Settings size={24} />
+              <span>Configurar Perfil Metabólico</span>
+            </button>
+
+            {/* Info Cards */}
+            <div className="mt-8 grid grid-cols-2 gap-3 text-left">
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">🎯 Personalizado</h3>
+                <p className="text-xs text-muted-foreground">
+                  Calorías y macros calculados para ti
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">🔄 Automático</h3>
+                <p className="text-xs text-muted-foreground">
+                  Se recalcula cuando cambias de peso
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">📊 Científico</h3>
+                <p className="text-xs text-muted-foreground">
+                  Fórmula Mifflin-St Jeor validada
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">🤖 IA</h3>
+                <p className="text-xs text-muted-foreground">
+                  Escaneo de comidas con GPT-4 Vision
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-muted rounded-lg text-sm text-left">
+              <p className="font-medium mb-2">💡 ¿Qué necesitas?</p>
+              <ul className="text-muted-foreground space-y-1">
+                <li>• Altura y edad</li>
+                <li>• Nivel de actividad física</li>
+                <li>• Objetivo (bulk, cut, maintain)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <MetabolicProfileModal
+          isOpen={showProfileModal}
+          onClose={handleProfileModalClose}
+        />
       </div>
     );
   }
@@ -69,13 +144,22 @@ export function NutritionDashboard() {
           <Sparkles className="text-primary" size={24} />
           <h2 className="text-2xl font-bold">Titan Fuel AI</h2>
         </div>
-        <button
-          onClick={() => setShowScanModal(true)}
-          className="px-4 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-primary/20"
-        >
-          <Sparkles size={18} />
-          <span>Escanear Comida</span>
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowProfileModal(true)}
+            className="px-4 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors flex items-center gap-2"
+            title="Editar Perfil"
+          >
+            <Settings size={18} />
+          </button>
+          <button
+            onClick={() => setShowScanModal(true)}
+            className="px-4 py-2 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg shadow-primary/20"
+          >
+            <Sparkles size={18} />
+            <span>Escanear Comida</span>
+          </button>
+        </div>
       </div>
 
       {/* Metabolic Profile Alert */}
@@ -261,6 +345,11 @@ export function NutritionDashboard() {
       </div>
 
       <ScanFoodModal isOpen={showScanModal} onClose={handleModalClose} />
+      <MetabolicProfileModal
+        isOpen={showProfileModal}
+        onClose={handleProfileModalClose}
+        existingProfile={profile}
+      />
     </div>
   );
 }
