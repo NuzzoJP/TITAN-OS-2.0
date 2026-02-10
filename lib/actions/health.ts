@@ -301,6 +301,30 @@ export async function getTopExercises(limit = 5) {
     .slice(0, limit);
 }
 
+// Obtener asistencia semanal al gym
+export async function getWeeklyGymAttendance() {
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'No autenticado' };
+    }
+
+    const { data, error } = await supabase.rpc('get_weekly_gym_attendance');
+    
+    if (error) {
+      console.error('Error getting weekly attendance:', error);
+      return { success: false, error: 'Error al obtener asistencia' };
+    }
+    
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error in getWeeklyGymAttendance:', error);
+    return { success: false, error: 'Error al obtener asistencia' };
+  }
+}
+
 // Export types from nutrition
 export type {
   NutritionLog,
