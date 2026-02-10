@@ -5,6 +5,7 @@
 -- PASO 1: Agregar columnas faltantes a health_exercises
 -- (Si ya existen, PostgreSQL las ignora)
 
+ALTER TABLE health_exercises ADD COLUMN IF NOT EXISTS equipment TEXT;
 ALTER TABLE health_exercises ADD COLUMN IF NOT EXISTS exercise_type TEXT CHECK (exercise_type IN ('compound', 'isolation', 'accessory'));
 ALTER TABLE health_exercises ADD COLUMN IF NOT EXISTS movement_pattern TEXT CHECK (movement_pattern IN ('push', 'pull', 'legs', 'core'));
 ALTER TABLE health_exercises ADD COLUMN IF NOT EXISTS difficulty_level TEXT CHECK (difficulty_level IN ('beginner', 'intermediate', 'advanced'));
