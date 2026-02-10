@@ -1,12 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, Award, Dumbbell, BarChart3 } from 'lucide-react';
+import { TrendingUp, Award, Dumbbell, BarChart3, Target } from 'lucide-react';
 import { getStrengthMetrics, getExercisePRs, get1RMProgress } from '@/lib/actions/health';
+import { getMetabolicProfile } from '@/lib/actions/nutrition';
 import type { StrengthMetrics, ExercisePR } from '@/lib/actions/health';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { calculateStrengthLevel, getStrengthLevelBadge, STRENGTH_LEVELS } from '@/lib/utils/strength-standards';
+import type { StrengthLevel } from '@/lib/utils/strength-standards';
+import { StrengthLevelBadge } from './strength-level-badge';
 
 export function StrengthMetricsDashboard() {
   const [metrics, setMetrics] = useState<StrengthMetrics | null>(null);
@@ -14,6 +18,8 @@ export function StrengthMetricsDashboard() {
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [progressData, setProgressData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bodyWeight, setBodyWeight] = useState<number>(70); // Default
+  const [gender, setGender] = useState<'male' | 'female'>('male');
 
   useEffect(() => {
     loadData();
@@ -28,13 +34,20 @@ export function StrengthMetricsDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [metricsData, prsData] = await Promise.all([
+      const [metricsData, prsData, profileData] = await Promise.all([
         getStrengthMetrics(),
         getExercisePRs(),
+        getMetabolicProfile(),
       ]);
 
       setMetrics(metricsData);
       setPrs(prsData);
+
+      // Obtener peso corporal y género del perfil
+      if (profileData) {
+        setBodyWeight(profileData.current_weight_kg || 70);
+        setGender(profileData.gender as 'male' | 'female');
+      }
 
       // Seleccionar primer ejercicio por defecto
       if (prsData.length > 0 && !selectedExercise) {
@@ -206,6 +219,17 @@ export function StrengthMetricsDashboard() {
               </div>
             </div>
 
+            {/* Nivel de Fuerza */}
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-6">
+              <StrengthLevelBadge
+                exerciseName={selectedPR.exercise_name}
+                oneRepMax={selectedPR.max_1rm}
+                bodyWeight={bodyWeight}
+                gender={gender}
+                showDetails={true}
+              />
+            </div>
+
             {/* Gráfica de Progreso */}
             {progressData.length > 0 && (
               <div className="mt-6">
@@ -248,14 +272,28 @@ export function StrengthMetricsDashboard() {
       <div className="bg-card border border-border rounded-lg p-6">
         <h3 className="text-lg font-semibold mb-4">Todos los Récords</h3>
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {prs.map((pr) => (
+          {prs.map((pr) => {
+            const strengthLevel = calculateStrengthLevel(pr.exercise_name, pr.max_1rm, bodyWeight, gender);
+            
+            return (
             <div
               key={pr.exercise_id}
               className="flex items-center justify-between p-3 bg-background rounded-lg border border-border hover:border-primary/50 transition-colors cursor-pointer"
               onClick={() => setSelectedExercise(pr.exercise_id)}
             >
-              <div>
-                <p className="font-medium">{pr.exercise_name}</p>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-medium">{pr.exercise_name}</p>
+                  {strengthLevel && (
+                    <StrengthLevelBadge
+                      exerciseName={pr.exercise_name}
+                      oneRepMax={pr.max_1rm}
+                      bodyWeight={bodyWeight}
+                      gender={gender}
+                      showDetails={false}
+                    />
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground capitalize">{pr.category}</p>
               </div>
               <div className="text-right">
@@ -263,7 +301,8 @@ export function StrengthMetricsDashboard() {
                 <p className="text-xs text-muted-foreground">{pr.total_sets} sets</p>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
