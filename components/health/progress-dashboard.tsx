@@ -142,9 +142,74 @@ export function ProgressDashboard() {
 
   if (progressData.length === 0) {
     return (
-      <div className="text-center py-12">
-        <p className="text-muted-foreground">No hay datos de progreso aún</p>
-        <p className="text-sm text-muted-foreground mt-2">Escanea tu primer reporte de Cubitt para comenzar</p>
+      <div className="space-y-6">
+        {/* Empty State */}
+        <div className="bg-card border border-border rounded-lg p-8 md:p-12 text-center">
+          <div className="max-w-md mx-auto">
+            <TrendingUp className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Comienza a Trackear tu Progreso</h2>
+            <p className="text-muted-foreground mb-6">
+              Escanea tu reporte de Cubitt para ver tus métricas de composición corporal y seguir tu evolución.
+            </p>
+            
+            <div className="space-y-3">
+              <a
+                href="/dashboard/health?tab=progress&scan=true"
+                className="block w-full"
+              >
+                <button className="w-full h-14 px-6 bg-primary text-primary-foreground rounded-lg font-bold text-base hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Escanear Reporte de Cubitt
+                </button>
+              </a>
+            </div>
+
+            {/* Info Cards */}
+            <div className="mt-8 grid grid-cols-2 gap-3 text-left">
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">📊 Métricas</h3>
+                <p className="text-xs text-muted-foreground">
+                  Peso, masa muscular, % grasa, BMR
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">📈 Gráficas</h3>
+                <p className="text-xs text-muted-foreground">
+                  Visualiza tu progreso en el tiempo
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">🎯 Objetivos</h3>
+                <p className="text-xs text-muted-foreground">
+                  Bulk, cut o mantenimiento
+                </p>
+              </div>
+              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
+                <h3 className="font-semibold text-sm mb-1">🤖 IA</h3>
+                <p className="text-xs text-muted-foreground">
+                  Escaneo automático con cámara
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-muted rounded-lg text-sm text-left">
+              <p className="font-medium mb-2">💡 Tip:</p>
+              <p className="text-muted-foreground">
+                Escanea tu Cubitt 1 vez por semana, mismo día y hora (ej: Lunes en ayunas) para resultados consistentes.
+              </p>
+            </div>
+
+            <div className="mt-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-sm text-left">
+              <p className="font-medium mb-2 text-yellow-500">⚠️ Importante:</p>
+              <p className="text-muted-foreground">
+                Primero debes ejecutar el SQL para crear las tablas. Ve a <span className="font-mono text-primary">GUIA_CUBITT.md</span> para instrucciones.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
