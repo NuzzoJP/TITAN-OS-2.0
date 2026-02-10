@@ -234,54 +234,59 @@ function RoutineCard({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2">
         <Button
-          size="sm"
-          className="flex-1"
+          size="lg"
+          className="w-full h-14 text-base font-bold"
           onClick={onStart}
         >
-          <Play className="mr-2 h-4 w-4" />
-          Iniciar
+          <Play className="mr-2 h-5 w-5" />
+          Iniciar Entrenamiento
         </Button>
 
-        {!isTemplate && (
-          <>
-            {!routine.is_active && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onSetActive}
-              >
-                Activar
-              </Button>
-            )}
+        <div className="grid grid-cols-3 gap-2">
+          {!isTemplate && !routine.is_active && (
             <Button
               size="sm"
               variant="outline"
+              className="h-12"
+              onClick={onSetActive}
+            >
+              Activar
+            </Button>
+          )}
+          
+          {!isTemplate && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-12"
               onClick={onEdit}
             >
               <Edit className="h-4 w-4" />
             </Button>
-          </>
-        )}
+          )}
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onClone}
-        >
-          <Copy className="h-4 w-4" />
-        </Button>
-
-        {!isTemplate && (
           <Button
             size="sm"
             variant="outline"
-            onClick={onDelete}
+            className="h-12"
+            onClick={onClone}
           >
-            <Trash2 className="h-4 w-4" />
+            <Copy className="h-4 w-4" />
           </Button>
-        )}
+
+          {!isTemplate && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-12"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

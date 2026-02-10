@@ -283,7 +283,7 @@ export function ActiveWorkout({
             <p className="font-semibold">Set {currentSetIndex + 1} de {sets.length}</p>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             <div>
               <label className="text-sm font-medium mb-2 block">Peso (kg)</label>
               <Input
@@ -292,7 +292,8 @@ export function ActiveWorkout({
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
                 placeholder="0"
-                className="text-lg"
+                className="text-2xl h-16 text-center font-bold"
+                inputMode="decimal"
               />
             </div>
             <div>
@@ -302,26 +303,28 @@ export function ActiveWorkout({
                 value={reps}
                 onChange={(e) => setReps(e.target.value)}
                 placeholder="0"
-                className="text-lg"
+                className="text-2xl h-16 text-center font-bold"
+                inputMode="numeric"
               />
             </div>
             <div>
-              <label className="text-sm font-medium mb-2 block">RPE (opcional)</label>
+              <label className="text-sm font-medium mb-2 block">RPE</label>
               <Input
                 type="number"
                 min="1"
                 max="10"
                 value={rpe}
                 onChange={(e) => setRpe(e.target.value)}
-                placeholder="7-9"
-                className="text-lg"
+                placeholder="8"
+                className="text-2xl h-16 text-center font-bold"
+                inputMode="numeric"
               />
             </div>
           </div>
 
           <Button
             size="lg"
-            className="w-full"
+            className="w-full h-16 text-lg font-bold"
             onClick={handleCompleteSet}
             disabled={saving || !weight || !reps}
           >
@@ -329,17 +332,17 @@ export function ActiveWorkout({
               'Guardando...'
             ) : currentSetIndex === sets.length - 1 && currentExerciseIndex === totalExercises - 1 ? (
               <>
-                <Trophy className="mr-2 h-5 w-5" />
+                <Trophy className="mr-2 h-6 w-6" />
                 Finalizar Entrenamiento
               </>
             ) : currentSetIndex === sets.length - 1 ? (
               <>
-                <ChevronRight className="mr-2 h-5 w-5" />
+                <ChevronRight className="mr-2 h-6 w-6" />
                 Siguiente Ejercicio
               </>
             ) : (
               <>
-                <Plus className="mr-2 h-5 w-5" />
+                <Check className="mr-2 h-6 w-6" />
                 Completar Set
               </>
             )}
