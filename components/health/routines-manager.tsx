@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Copy, Edit, Trash2, Play, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getRoutines, cloneRoutine, deleteRoutine, setActiveRoutine, startWorkoutFromRoutine } from '@/lib/actions/routines';
@@ -9,52 +10,80 @@ import { EditRoutineModal } from './edit-routine-modal';
 import type { Routine } from '@/lib/actions/routines';
 
 export function RoutinesManager() {
-  const [routines, setRoutines] = useState<Routine[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
 
-  useEffect(() => {
-    loadRoutines();
-  }, []);
+  // React Query para cargar rutinas (con cache)
+  const { data: routines = [], isLoading } = useQuery({
+    queryKey: ['routines'],
+    queryFn: async () => {
+      const result = await getRoutines();
+      return result.success && result.data ? result.data : [];
+    },
+  });
 
-  const loadRoutines = async () => {
-    setLoading(true);
-    const result = await getRoutines();
-    if (result.success && result.data) {
-      setRoutines(result.data);
-    }
-    setLoading(false);
+  // Mutation para clonar (optimistic update)
+  const cloneMutation = useMutation({
+    mutationFn: (routineId: string) => cloneRoutine(routineId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+    },
+  });
+
+  // Mutation para eliminar (optimistic update)
+  const deleteMutation = useMutation({
+    mutationFn: (routineId: string) => deleteRoutine(routineId),
+    onMutate: async (routineId) => {
+      // Cancelar queries en curso
+      await queryClient.cancelQueries({ queryKey: ['routines'] });
+      
+      // Snapshot del estado anterior
+      const previousRoutines = queryClient.getQueryData(['routines']);
+      
+      // Optimistic update
+      queryClient.setQueryData(['routines'], (old: Routine[] = []) =>
+        old.filter((r) => r.id !== routineId)
+      );
+      
+      return { previousRoutines };
+    },
+    onError: (err, routineId, context) => {
+      // Rollback en caso de error
+      if (context?.previousRoutines) {
+        queryClient.setQueryData(['routines'], context.previousRoutines);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+    },
+  });
+
+  // Mutation para activar
+  const activateMutation = useMutation({
+    mutationFn: (routineId: string) => setActiveRoutine(routineId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['routines'] });
+    },
+  });
+
+  const handleClone = (routine: Routine) => {
+    cloneMutation.mutate(routine.id);
   };
 
-  const handleClone = async (routine: Routine) => {
-    const result = await cloneRoutine(routine.id);
-    if (result.success) {
-      loadRoutines();
-    }
-  };
-
-  const handleDelete = async (routineId: string) => {
+  const handleDelete = (routineId: string) => {
     if (!confirm('¿Eliminar esta rutina?')) return;
-    
-    const result = await deleteRoutine(routineId);
-    if (result.success) {
-      loadRoutines();
-    }
+    deleteMutation.mutate(routineId);
   };
 
-  const handleSetActive = async (routineId: string) => {
-    const result = await setActiveRoutine(routineId);
-    if (result.success) {
-      loadRoutines();
-    }
+  const handleSetActive = (routineId: string) => {
+    activateMutation.mutate(routineId);
   };
 
   const handleStartWorkout = async (routineId: string) => {
     const result = await startWorkoutFromRoutine(routineId);
     if (result.success && result.data) {
-      // Redirect to gym tab with workout params
       const params = new URLSearchParams({
         sessionId: result.data.sessionId,
         routineId: result.data.routineId,
@@ -69,7 +98,7 @@ export function RoutinesManager() {
   const templates = routines.filter(r => r.is_template);
   const myRoutines = routines.filter(r => !r.is_template);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -146,7 +175,9 @@ export function RoutinesManager() {
       <CreateRoutineModal
         open={createModalOpen}
         onOpenChange={setCreateModalOpen}
-        onSuccess={loadRoutines}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['routines'] });
+        }}
       />
 
       {selectedRoutine && (
@@ -154,7 +185,9 @@ export function RoutinesManager() {
           open={editModalOpen}
           onOpenChange={setEditModalOpen}
           routine={selectedRoutine}
-          onSuccess={loadRoutines}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['routines'] });
+          }}
         />
       )}
     </div>

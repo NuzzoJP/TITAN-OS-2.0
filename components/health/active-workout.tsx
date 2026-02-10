@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, X, Plus, ChevronRight, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,7 @@ export function ActiveWorkout({
   onFinish,
   onCancel,
 }: ActiveWorkoutProps) {
+  const queryClient = useQueryClient();
   const [exercises, setExercises] = useState<any[]>([]);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
@@ -38,11 +40,68 @@ export function ActiveWorkout({
   const [reps, setReps] = useState('');
   const [rpe, setRpe] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   
   // Rest Timer State
   const [showRestTimer, setShowRestTimer] = useState(false);
   const [restSeconds, setRestSeconds] = useState(90);
+
+  // Mutation para guardar set (optimistic)
+  const saveSetMutation = useMutation({
+    mutationFn: async (setData: {
+      session_id: string;
+      exercise_id: string;
+      weight_kg: number;
+      reps: number;
+      rpe?: number;
+    }) => {
+      return await createSet(setData);
+    },
+    onMutate: async () => {
+      // Actualizar UI inmediatamente
+      const newSets = [...sets];
+      newSets[currentSetIndex] = {
+        weight: parseFloat(weight),
+        reps: parseInt(reps),
+        rpe: rpe ? parseInt(rpe) : 0,
+        completed: true,
+      };
+      setSets(newSets);
+      
+      // Limpiar inputs
+      setWeight('');
+      setReps('');
+      setRpe('');
+      
+      return { previousSets: sets };
+    },
+    onError: (err, variables, context) => {
+      // Rollback en caso de error
+      if (context?.previousSets) {
+        setSets(context.previousSets);
+      }
+      alert('Error al guardar el set');
+    },
+    onSuccess: () => {
+      // Avanzar al siguiente set o ejercicio
+      if (currentSetIndex === sets.length - 1) {
+        // Último set del ejercicio
+        if (currentExerciseIndex < exercises.length - 1) {
+          // Siguiente ejercicio
+          setCurrentExerciseIndex(currentExerciseIndex + 1);
+          const nextEx = exercises[currentExerciseIndex + 1];
+          initializeSets(nextEx.target_sets);
+          setRestSeconds(nextEx.rest_seconds || 90);
+        } else {
+          // Workout completado
+          onFinish();
+        }
+      } else {
+        // Siguiente set
+        setCurrentSetIndex(currentSetIndex + 1);
+        setShowRestTimer(true);
+      }
+    },
+  });
 
   useEffect(() => {
     loadRoutineExercises();
@@ -82,63 +141,19 @@ export function ActiveWorkout({
   const totalExercises = exercises.length;
   const completedSets = sets.filter(s => s.completed).length;
 
-  const handleCompleteSet = async () => {
+  const handleCompleteSet = () => {
     if (!weight || !reps) {
       alert('Ingresa peso y repeticiones');
       return;
     }
 
-    setSaving(true);
-
-    try {
-      // Save set to database
-      await createSet({
-        session_id: sessionId,
-        exercise_id: currentExercise.exercise_id,
-        weight_kg: parseFloat(weight),
-        reps: parseInt(reps),
-        rpe: rpe ? parseInt(rpe) : undefined,
-      });
-
-      // Mark set as completed
-      const newSets = [...sets];
-      newSets[currentSetIndex] = {
-        weight: parseFloat(weight),
-        reps: parseInt(reps),
-        rpe: rpe ? parseInt(rpe) : 0,
-        completed: true,
-      };
-      setSets(newSets);
-
-      // Check if this was the last set
-      if (currentSetIndex === sets.length - 1) {
-        // Move to next exercise
-        if (currentExerciseIndex < totalExercises - 1) {
-          setCurrentExerciseIndex(currentExerciseIndex + 1);
-          const nextEx = exercises[currentExerciseIndex + 1];
-          initializeSets(nextEx.target_sets);
-          setRestSeconds(nextEx.rest_seconds || 90);
-        } else {
-          // Workout complete!
-          onFinish();
-          return;
-        }
-      } else {
-        // Move to next set
-        setCurrentSetIndex(currentSetIndex + 1);
-        setWeight('');
-        setReps('');
-        setRpe('');
-        
-        // Start rest timer
-        setShowRestTimer(true);
-      }
-    } catch (error) {
-      console.error('Error saving set:', error);
-      alert('Error al guardar el set');
-    } finally {
-      setSaving(false);
-    }
+    saveSetMutation.mutate({
+      session_id: sessionId,
+      exercise_id: currentExercise.exercise_id,
+      weight_kg: parseFloat(weight),
+      reps: parseInt(reps),
+      rpe: rpe ? parseInt(rpe) : undefined,
+    });
   };
 
   const handleSkipExercise = () => {
@@ -326,9 +341,9 @@ export function ActiveWorkout({
             size="lg"
             className="w-full h-16 text-lg font-bold"
             onClick={handleCompleteSet}
-            disabled={saving || !weight || !reps}
+            disabled={saveSetMutation.isPending || !weight || !reps}
           >
-            {saving ? (
+            {saveSetMutation.isPending ? (
               'Guardando...'
             ) : currentSetIndex === sets.length - 1 && currentExerciseIndex === totalExercises - 1 ? (
               <>
