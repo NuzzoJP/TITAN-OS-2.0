@@ -382,16 +382,29 @@ export async function getStrengthMetrics(): Promise<StrengthMetrics> {
     
     if (prsError) throw prsError;
     
-    // Top 3 1RMs para fuerza total (Bench, Squat, Deadlift/RDL)
-    const topLifts = (prs || [])
+    // Top 3 1RMs para fuerza total con fechas reales
+    const topLiftsPromises = (prs || [])
       .filter(pr => pr.max_1rm > 0)
       .slice(0, 3)
-      .map(pr => ({
-        exercise: pr.exercise_name,
-        max1rm: pr.max_1rm,
-        date: new Date().toISOString(), // TODO: Get actual date from sets
-      }));
+      .map(async (pr) => {
+        // Obtener la fecha del set con el 1RM máximo
+        const { data: maxSet } = await supabase
+          .from('health_sets')
+          .select('created_at')
+          .eq('exercise_id', pr.exercise_id)
+          .eq('estimated_1rm', pr.max_1rm)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        return {
+          exercise: pr.exercise_name,
+          max1rm: pr.max_1rm,
+          date: maxSet?.created_at || new Date().toISOString(),
+        };
+      });
     
+    const topLifts = await Promise.all(topLiftsPromises);
     const totalStrength = topLifts.reduce((sum, lift) => sum + lift.max1rm, 0);
     
     // Volumen mensual
@@ -411,9 +424,40 @@ export async function getStrengthMetrics(): Promise<StrengthMetrics> {
       0
     );
     
-    // PRs este mes (sets donde 1RM es el máximo histórico)
-    // TODO: Implementar detección de PRs
-    const prsThisMonth = 0;
+    // PRs este mes: detectar sets donde el 1RM es nuevo récord
+    let prsThisMonth = 0;
+    
+    for (const pr of prs || []) {
+      // Obtener el 1RM máximo del mes pasado
+      const lastMonth = new Date(startOfMonth);
+      lastMonth.setMonth(lastMonth.getMonth() - 1);
+      
+      const { data: previousMax } = await supabase
+        .from('health_sets')
+        .select('estimated_1rm')
+        .eq('exercise_id', pr.exercise_id)
+        .lt('created_at', startOfMonth.toISOString())
+        .order('estimated_1rm', { ascending: false })
+        .limit(1)
+        .single();
+      
+      // Si el PR actual es mayor que el del mes pasado, es un PR nuevo
+      if (!previousMax || pr.max_1rm > (previousMax.estimated_1rm || 0)) {
+        // Verificar que el PR se logró este mes
+        const { data: thisMonthMax } = await supabase
+          .from('health_sets')
+          .select('estimated_1rm')
+          .eq('exercise_id', pr.exercise_id)
+          .gte('created_at', startOfMonth.toISOString())
+          .order('estimated_1rm', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (thisMonthMax && thisMonthMax.estimated_1rm === pr.max_1rm) {
+          prsThisMonth++;
+        }
+      }
+    }
     
     return {
       totalStrength: Math.round(totalStrength),

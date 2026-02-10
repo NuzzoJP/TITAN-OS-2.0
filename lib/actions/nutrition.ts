@@ -246,7 +246,7 @@ export async function getRecentHealthStats(limit = 10) {
 }
 
 // Calcular métricas metabólicas usando fórmula Mifflin-St Jeor
-export function calculateMetabolics(data: {
+export async function calculateMetabolics(data: {
   weight_kg: number;
   height_cm: number;
   age: number;

@@ -223,6 +223,8 @@ export function ScanCubittModal({ open, onOpenChange, onSuccess }: ScanCubittMod
                 Analizar Imagen
               </Button>
             )}
+          </div>
+            )}
           </TabsContent>
 
           {/* TAB: Manual */}
