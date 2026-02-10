@@ -16,7 +16,7 @@ export default function HealthPage() {
     <div className="space-y-6">
       {/* Header with Tabs */}
       <div>
-        <h1 className="text-3xl font-bold mb-4">Health</h1>
+        <h1 className="text-3xl font-bold mb-4">Titan Health</h1>
         <div className="flex gap-2 border-b border-border overflow-x-auto">
           <TabButton
             active={activeTab === 'gym'}
