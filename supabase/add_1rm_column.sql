@@ -45,7 +45,7 @@ CREATE OR REPLACE VIEW exercise_prs AS
 SELECT 
   e.id as exercise_id,
   e.name as exercise_name,
-  e.category,
+  e.muscle_group as category,
   MAX(s.estimated_1rm) as max_1rm,
   MAX(s.weight_kg) as max_weight,
   MAX(s.reps) as max_reps,
@@ -55,7 +55,7 @@ FROM health_exercises e
 LEFT JOIN health_sets s ON s.exercise_id = e.id
 LEFT JOIN health_workout_sessions ws ON s.session_id = ws.id
 WHERE s.user_id = auth.uid()
-GROUP BY e.id, e.name, e.category;
+GROUP BY e.id, e.name, e.muscle_group;
 
 -- 7. Habilitar RLS en la vista
 ALTER VIEW exercise_prs SET (security_invoker = true);
