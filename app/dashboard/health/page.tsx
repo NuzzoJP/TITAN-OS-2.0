@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Dumbbell, Utensils, ListChecks, TrendingUp } from 'lucide-react';
-import { GymDashboard } from '@/components/health/gym-dashboard';
+import { Dumbbell, Utensils, TrendingUp } from 'lucide-react';
+import { GymDashboardNew } from '@/components/health/gym-dashboard-new';
 import { NutritionDashboard } from '@/components/health/nutrition-dashboard';
-import { RoutinesManager } from '@/components/health/routines-manager';
 import { ProgressDashboard } from '@/components/health/progress-dashboard';
 
-type Tab = 'gym' | 'routines' | 'progress' | 'nutrition';
+type Tab = 'gym' | 'progress' | 'nutrition';
 
 export default function HealthPage() {
   const [activeTab, setActiveTab] = useState<Tab>('gym');
@@ -25,12 +24,6 @@ export default function HealthPage() {
             label="Gym Tracker"
           />
           <TabButton
-            active={activeTab === 'routines'}
-            onClick={() => setActiveTab('routines')}
-            icon={<ListChecks size={20} />}
-            label="Rutinas"
-          />
-          <TabButton
             active={activeTab === 'progress'}
             onClick={() => setActiveTab('progress')}
             icon={<TrendingUp size={20} />}
@@ -46,8 +39,7 @@ export default function HealthPage() {
       </div>
 
       {/* Content */}
-      {activeTab === 'gym' && <GymDashboard />}
-      {activeTab === 'routines' && <RoutinesManager />}
+      {activeTab === 'gym' && <GymDashboardNew />}
       {activeTab === 'progress' && <ProgressDashboard />}
       {activeTab === 'nutrition' && <NutritionDashboard />}
     </div>
