@@ -12,6 +12,7 @@ import {
 import type { Exercise, WorkoutSession } from '@/lib/actions/health';
 import { LogWorkoutModal } from './log-workout-modal';
 import { AddExerciseModal } from './add-exercise-modal';
+import { ActiveWorkout } from './active-workout';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -30,9 +31,26 @@ export function GymDashboard() {
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [expandedSession, setExpandedSession] = useState<string | null>(null);
   const [sessionSets, setSessionSets] = useState<Record<string, any[]>>({});
+  
+  // Active Workout State
+  const [activeWorkout, setActiveWorkout] = useState<{
+    sessionId: string;
+    routineId: string;
+    routineName: string;
+  } | null>(null);
 
   useEffect(() => {
     loadData();
+    
+    // Check for active workout in URL params
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('sessionId');
+    const routineId = params.get('routineId');
+    const routineName = params.get('routineName');
+    
+    if (sessionId && routineId && routineName) {
+      setActiveWorkout({ sessionId, routineId, routineName });
+    }
   }, []);
 
   const loadData = async () => {
@@ -74,11 +92,38 @@ export function GymDashboard() {
     }
   };
 
+  const handleFinishWorkout = () => {
+    setActiveWorkout(null);
+    // Clear URL params
+    window.history.replaceState({}, '', '/dashboard/health');
+    loadData();
+  };
+
+  const handleCancelWorkout = () => {
+    if (confirm('¿Cancelar el entrenamiento? Se perderán los sets no guardados.')) {
+      setActiveWorkout(null);
+      window.history.replaceState({}, '', '/dashboard/health');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-muted-foreground">Cargando...</div>
       </div>
+    );
+  }
+
+  // Show Active Workout if there is one
+  if (activeWorkout) {
+    return (
+      <ActiveWorkout
+        sessionId={activeWorkout.sessionId}
+        routineId={activeWorkout.routineId}
+        routineName={activeWorkout.routineName}
+        onFinish={handleFinishWorkout}
+        onCancel={handleCancelWorkout}
+      />
     );
   }
 

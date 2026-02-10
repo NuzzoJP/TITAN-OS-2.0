@@ -437,18 +437,26 @@ export async function startWorkoutFromRoutine(routineId: string) {
       .from('health_workout_sessions')
       .insert({
         user_id: user.id,
-        start_time: new Date().toISOString(),
+        date: new Date().toISOString().split('T')[0],
         notes: `Rutina: ${routine.name}`,
       })
       .select()
       .single();
 
     if (sessionError || !session) {
+      console.error('Session error:', sessionError);
       return { success: false, error: 'Error al crear sesión' };
     }
 
     revalidatePath('/dashboard/health');
-    return { success: true, data: { session, routine } };
+    return { 
+      success: true, 
+      data: { 
+        sessionId: session.id,
+        routineId: routine.id,
+        routineName: routine.name,
+      } 
+    };
   } catch (error) {
     console.error('Error in startWorkoutFromRoutine:', error);
     return { success: false, error: 'Error al iniciar sesión' };

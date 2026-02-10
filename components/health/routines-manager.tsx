@@ -53,9 +53,16 @@ export function RoutinesManager() {
 
   const handleStartWorkout = async (routineId: string) => {
     const result = await startWorkoutFromRoutine(routineId);
-    if (result.success) {
-      // Redirigir a sesión activa
-      window.location.href = '/dashboard/health?tab=workout';
+    if (result.success && result.data) {
+      // Redirect to gym tab with workout params
+      const params = new URLSearchParams({
+        sessionId: result.data.sessionId,
+        routineId: result.data.routineId,
+        routineName: result.data.routineName,
+      });
+      window.location.href = `/dashboard/health?${params.toString()}`;
+    } else {
+      alert(result.error || 'Error al iniciar entrenamiento');
     }
   };
 
